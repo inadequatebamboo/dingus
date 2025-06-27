@@ -2,7 +2,10 @@ import discord
 import requests
 import json
 import asyncio
-
+import os
+from dotenv import load_dotenv
+load_dotenv()
+token = os.getenv("DISCORD_TOKEN")
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -19,6 +22,11 @@ def ollama_request(prompt, model="dingus"):
     data = json.loads(last)
     return data.get("response", "").strip()
 class MyClient(discord.Client):
+    def __init__(self, *, intents):
+        super().__init__(intents=intents)
+        self.queue = asyncio.Queue()
+        self.bg_task = self.loop.create_task(self.process_queue())
+
     async def on_ready(self):
         print(f'Logged on as {self.user}!')
 
