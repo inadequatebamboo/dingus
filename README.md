@@ -20,6 +20,7 @@ TRIGGER_WORD=your-trigger-word-here
 ## Usage
 To use dingus, just use your trigger word in your sentence. For example:
 `hello dingus`
+
 You can aslo reply to the bots replies!
 ## TODO list
 - Add short term memory
