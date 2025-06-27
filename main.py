@@ -6,13 +6,13 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
-ollama_model = os.getenv("OLLAMA_MODEL", "llama3")
-trigger_word = os.getenv("TRIGGER_WORD", "dingus")
+ollama_model = os.getenv("OLLAMA_MODEL")
+trigger_word = os.getenv("TRIGGER_WORD")
 intents = discord.Intents.default()
 intents.message_content = True
 
 def ollama_request(prompt, model=ollama_model):
-    url = "http://localhost:11434/api/generate"
+    url = "http://localhost:11434/api/generate" # ollama api url
     payload = {
         "model": model,
         "prompt": prompt
@@ -24,7 +24,7 @@ def ollama_request(prompt, model=ollama_model):
     data = json.loads(last)
     return data.get("response", "").strip()
 class MyClient(discord.Client):
-    def __init__(self, *, intents):
+    def __init__(self, *, intents): #queue task
         super().__init__(intents=intents)
         self.queue = asyncio.Queue()
         self.bg_task = self.loop.create_task(self.process_queue())
@@ -36,11 +36,11 @@ class MyClient(discord.Client):
         print(f'Message from {message.author}: {message.content}')
         if message.author == client.user:
             return
-        if trigger_word.lower() in message.content.lower():
+        if trigger_word.lower() in message.content.lower():    # trigger message detection
             await message.channel.typing()
             ollama_response = ollama_request(message.conent)
             await message.reply(ollama_response)
-        if message.reference is not None:
+        if message.reference is not None:                      # reply detection
             try:
                 replied_message = await message.channel.fetch_message(message.reference.message_id)
                 if replied_message.author == client.user:
@@ -54,5 +54,4 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 client = MyClient(intents=intents)
-client = discord.Client(activity=discord.Game(name='my game'))
 client.run(token)
