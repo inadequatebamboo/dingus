@@ -6,10 +6,12 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
+ollama_model = os.getenv("OLLAMA_MODEL", "llama3")
+trigger_word = os.getenv("TRIGGER_WORD", "dingus")
 intents = discord.Intents.default()
 intents.message_content = True
 
-def ollama_request(prompt, model="dingus"):
+def ollama_request(prompt, model=ollama_model):
     url = "http://localhost:11434/api/generate"
     payload = {
         "model": model,
@@ -34,7 +36,7 @@ class MyClient(discord.Client):
         print(f'Message from {message.author}: {message.content}')
         if message.author == client.user:
             return
-        if 'dingus' in message.content.lower():
+        if trigger_word.lower() in message.content.lower():
             await message.channel.typing()
             ollama_response = ollama_request(message.conent)
             await message.reply(ollama_response)
