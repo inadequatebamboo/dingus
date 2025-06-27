@@ -15,7 +15,7 @@ DISCORD_TOKEN=your-token-here
 OLLAMA_MODEL=your-model-here
 TRIGGER_WORD=your-trigger-word-here
 ```
-###3. Run the py file
+### 3. Run the py file
 `python main.py`
 ## Usage
 To use dingus, just use your trigger word in your sentence. For example:
