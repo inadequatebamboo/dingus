@@ -12,20 +12,19 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 def ollama_request(prompt, model=ollama_model):
-    url = "http://localhost:11434/api/generate" # ollama api
+    url = "http://localhost:11434/api/generate"
     payload = {
         "model": model,
         "prompt": prompt
     }
     response = requests.post(url, json=payload, timeout=180)
-    responses = []
-    for line in response.text.strip().split('\n'): # fixed the bot not having a response
+    result = ""
+    for line in response.text.strip().split('\n'):
         if line.strip():
             data = json.loads(line)
             part = data.get("response", "")
-            if part:
-                responses.append(part)
-    return "".join(responses).strip()
+            result += part
+    return result.strip()
 
 class MyClient(discord.Client):
     def __init__(self, *, intents):
