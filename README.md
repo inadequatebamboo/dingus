@@ -33,4 +33,4 @@ You can also reply to the bots replies!
 ## TODO list
 - Add short term memory
 - Add random responses with a customisable chance
-- Improve code
+- ~~Improve code~~
