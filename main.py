@@ -12,7 +12,7 @@ trigger_word = os.getenv("TRIGGER_WORD")
 intents = discord.Intents.default()
 intents.message_content = True
 
-FILTERED_WORDS_RAW = os.getenv("FILTERED_WORDS")
+FILTERED_WORDS_RAW = os.getenv("FILTERED_WORDS", "stupid, idiot, dumb poop fart")
 FILTERED_WORDS = set(w.lower() for w in re.split(r"[,\s]+", FILTERED_WORDS_RAW.strip()) if w)
 
 DINGUS_CONVO = [
@@ -63,12 +63,12 @@ class MyClient(discord.Client):
     async def on_message(self, message):
         if message.author == self.user:
             return
-        if contains_filtered_word(message.content):
-            await message.reply("meow")
-            return
         if trigger_word and trigger_word.lower() in message.content.lower():
             await message.channel.typing()
             ollama_response = await asyncio.to_thread(ollama_chat_request, message.content)
+            # Filter Dingus's outgoing message
+            if contains_filtered_word(ollama_response):
+                ollama_response = "meow"
             await message.reply(ollama_response)
         elif message.reference is not None:
             try:
@@ -76,6 +76,9 @@ class MyClient(discord.Client):
                 if replied_message.author == self.user:
                     await message.channel.typing()
                     ollama_response = await asyncio.to_thread(ollama_chat_request, message.content)
+                    # Filter Dingus's outgoing message
+                    if contains_filtered_word(ollama_response):
+                        ollama_response = "meow"
                     await message.reply(ollama_response)
             except:
                 pass
