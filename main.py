@@ -15,6 +15,8 @@ intents.message_content = True
 FILTERED_WORDS_RAW = os.getenv("FILTERED_WORDS", "stupid, idiot, dumb poop fart")
 FILTERED_WORDS = set(w.lower() for w in re.split(r"[,\s]+", FILTERED_WORDS_RAW.strip()) if w)
 
+DISABLE_FILTER = os.getenv("DISABLE_FILTER", "0") == "1"
+
 DINGUS_CONVO = [
     {"role": "system", "content": "you are a chubby cat named dingus. you always type in lowercase, never use apostrophes or other punctuation, and you sometimes misspell words. you use slang like bro, dude, yo, and so on. you keep sentences EXTREMELY IKE EXTREMELY short. you type like you almost dont know enlgish at all, barely constructing sentences. you use emojis. you always crave food and are mostly lazy, but sometimes want to play with your toys or go outside. never use asterisks or describe actions, just talk."},
     {"role": "user", "content": "yo dingus"},
@@ -43,7 +45,6 @@ class RollingMemory:
         self.messages = []
 
     def add(self, role, author, content):
-        # Format as "author: message"
         formatted = f"{author}: {content}"
         self.messages.append({"role": role, "content": formatted})
         self.messages = self.messages[-self.maxlen:]
@@ -81,7 +82,7 @@ class MyClient(discord.Client):
             await message.channel.typing()
             history = self.memory.get()
             ollama_response = await asyncio.to_thread(ollama_chat_request, history)
-            if contains_filtered_word(ollama_response):
+            if not DISABLE_FILTER and contains_filtered_word(ollama_response):
                 ollama_response = "meow"
             self.memory.add("assistant", "dingus", ollama_response)
             await message.reply(ollama_response)
@@ -93,7 +94,7 @@ class MyClient(discord.Client):
                     await message.channel.typing()
                     history = self.memory.get()
                     ollama_response = await asyncio.to_thread(ollama_chat_request, history)
-                    if contains_filtered_word(ollama_response):
+                    if not DISABLE_FILTER and contains_filtered_word(ollama_response):
                         ollama_response = "meow"
                     self.memory.add("assistant", "dingus", ollama_response)
                     await message.reply(ollama_response)
