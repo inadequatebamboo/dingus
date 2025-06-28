@@ -3,7 +3,11 @@
 ## About
 Dingus is a higly customisable chatbot in Discord that uses LLM models and Ollama to generate responses to users.
 ## Requirements
-### 1. pip
+### 2. Ollama
+For the AI features, install ollama
+
+`curl -fsSL https://ollama.com/install.sh | sh`
+### 1. Python dependencies
 To install all requirements, do `pip install -r requirements.txt`
 ## Installation
 ### 1. Clone the repository
