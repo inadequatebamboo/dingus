@@ -44,14 +44,14 @@ class MyClient(discord.Client):
             return
         if trigger_word and trigger_word.lower() in message.content.lower():
             await message.channel.typing()
-            ollama_response = ollama_request(message.content)
+            ollama_response = await asyncio.to_thread(ollama_request, message.content)
             await message.reply(ollama_response)
         if message.reference is not None:
             try:
                 replied_message = await message.channel.fetch_message(message.reference.message_id)
                 if replied_message.author == self.user:
                     await message.channel.typing()
-                    ollama_response = ollama_request(message.content)
+                    ollama_response = await asyncio.to_thread(ollama_request, message.content)
                     await message.reply(ollama_response)
             except:
                 pass
