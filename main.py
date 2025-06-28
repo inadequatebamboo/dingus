@@ -37,12 +37,25 @@ def contains_filtered_word(text):
     words = re.findall(r"\w+", text.lower())
     return any(word in FILTERED_WORDS for word in words)
 
-def ollama_chat_request(user_message, model=ollama_model):
-    messages = DINGUS_CONVO + [{"role": "user", "content": user_message}]
+class RollingMemory:
+    def __init__(self, maxlen=20):
+        self.maxlen = maxlen
+        self.messages = []
+
+    def add(self, role, author, content):
+        # Format as "author: message"
+        formatted = f"{author}: {content}"
+        self.messages.append({"role": role, "content": formatted})
+        self.messages = self.messages[-self.maxlen:]
+
+    def get(self):
+        return self.messages
+
+def ollama_chat_request(history, model=ollama_model):
     url = "http://localhost:11434/api/chat"
     payload = {
         "model": model,
-        "messages": messages,
+        "messages": DINGUS_CONVO + history,
         "stream": False
     }
     response = requests.post(url, json=payload, timeout=180)
@@ -52,7 +65,7 @@ def ollama_chat_request(user_message, model=ollama_model):
 class MyClient(discord.Client):
     def __init__(self, *, intents):
         super().__init__(intents=intents)
-        self.queue = asyncio.Queue()
+        self.memory = RollingMemory(maxlen=20)
 
     async def setup_hook(self):
         self.bg_task = asyncio.create_task(self.process_queue())
@@ -64,21 +77,25 @@ class MyClient(discord.Client):
         if message.author == self.user:
             return
         if trigger_word and trigger_word.lower() in message.content.lower():
+            self.memory.add("user", message.author.display_name, message.content)
             await message.channel.typing()
-            ollama_response = await asyncio.to_thread(ollama_chat_request, message.content)
-            # Filter Dingus's outgoing message
+            history = self.memory.get()
+            ollama_response = await asyncio.to_thread(ollama_chat_request, history)
             if contains_filtered_word(ollama_response):
                 ollama_response = "meow"
+            self.memory.add("assistant", "dingus", ollama_response)
             await message.reply(ollama_response)
         elif message.reference is not None:
             try:
                 replied_message = await message.channel.fetch_message(message.reference.message_id)
                 if replied_message.author == self.user:
+                    self.memory.add("user", message.author.display_name, message.content)
                     await message.channel.typing()
-                    ollama_response = await asyncio.to_thread(ollama_chat_request, message.content)
-                    # Filter Dingus's outgoing message
+                    history = self.memory.get()
+                    ollama_response = await asyncio.to_thread(ollama_chat_request, history)
                     if contains_filtered_word(ollama_response):
                         ollama_response = "meow"
+                    self.memory.add("assistant", "dingus", ollama_response)
                     await message.reply(ollama_response)
             except:
                 pass
