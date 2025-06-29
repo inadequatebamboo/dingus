@@ -1,6 +1,5 @@
 import discord
 import requests
-import json
 import asyncio
 import os
 import re
