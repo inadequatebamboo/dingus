@@ -100,7 +100,6 @@ DINGUS_CONVO = [
     {"role": "assistant", "content": "maybe"}
 ]
 
-
 def redact_filtered_words(text):
     def replacer(match):
         word = match.group(0)
@@ -108,24 +107,29 @@ def redact_filtered_words(text):
             return "[[REDACTED]]"
         else:
             return word
-
     pattern = r'\b(' + '|'.join(re.escape(word) for word in FILTERED_WORDS) + r')\b'
     return re.sub(pattern, replacer, text, flags=re.IGNORECASE)
 
-
 class RollingMemory:
-    def __init__(self, maxlen=10):
+    def __init__(self, maxlen=10, reset_every=5):
         self.maxlen = maxlen
+        self.reset_every = reset_every
         self.messages = []
+        self.counter = 0
 
     def add(self, role, author, content):
-        formatted = f"{author}: {content}"
+        if role == "assistant":
+            formatted = content
+        else:
+            formatted = f"{author}: {content}"
         self.messages.append({"role": role, "content": formatted})
-        self.messages = self.messages[-self.maxlen:]
+        self.counter += 1
+        if self.counter >= self.reset_every:
+            self.messages = []
+            self.counter = 0
 
     def get(self):
         return self.messages
-
 
 def ollama_chat_request(history, model=ollama_model):
     url = "http://localhost:11434/api/chat"
@@ -138,11 +142,10 @@ def ollama_chat_request(history, model=ollama_model):
     data = response.json()
     return data["message"]["content"].strip()
 
-
 class MyClient(discord.Client):
     def __init__(self, *, intents):
         super().__init__(intents=intents)
-        self.memory = RollingMemory(maxlen=20)
+        self.memory = RollingMemory(maxlen=20, reset_every=5)
 
     async def setup_hook(self):
         self.bg_task = asyncio.create_task(self.process_queue())
@@ -178,7 +181,6 @@ class MyClient(discord.Client):
     async def process_queue(self):
         while True:
             await asyncio.sleep(0.1)
-
 
 client = MyClient(intents=intents)
 client.run(token)
