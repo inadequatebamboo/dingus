@@ -16,11 +16,20 @@ intents.message_content = True
 FILTERED_WORDS_RAW = os.getenv("FILTERED_WORDS", "stupid, idiot, dumb poop fart")
 FILTERED_WORDS = set(w.lower() for w in re.split(r"[,\s]+", FILTERED_WORDS_RAW.strip()) if w)
 
-def contains_filtered_word(text):
-    words = re.findall(r"\w+", text.lower())
-    result = any(word in FILTERED_WORDS for word in words)
-    print(f"[FILTER CHECK] Text: {text!r}, Matched: {result}")
-    return result
+def redact_filtered_words(text):
+    def replacer(match):
+        word = match.group(0)
+        if word.lower() in FILTERED_WORDS:
+            print(f"[REDACT] Redacting word: {word!r}")
+            return "[[REDACTED]]"
+        else:
+            return word
+    pattern = r'\b(' + '|'.join(re.escape(word) for word in FILTERED_WORDS) + r')\b'
+    redacted = re.sub(pattern, replacer, text, flags=re.IGNORECASE)
+    if redacted != text:
+        print(f"[REDACT] Original: {text!r}")
+        print(f"[REDACT] Redacted: {redacted!r}")
+    return redacted
 
 def ollama_generate_request(prompt, model=ollama_model):
     url = "http://localhost:11434/api/generate"
@@ -35,11 +44,9 @@ def ollama_generate_request(prompt, model=ollama_model):
         print(f"[OLLAMA RAW RESPONSE]\n{response.text}\n")
         response.raise_for_status()
         lines = response.text.strip().split('\n')
-        last = lines[-1]
-        data = json.loads(last)
-        content = data.get("response", "").strip()
+        content = ''.join(json.loads(line).get("response", "") for line in lines if line.strip())
         print(f"[OLLAMA FINAL RESPONSE] {content!r}")
-        return content
+        return content.strip()
     except Exception as e:
         print(f"[OLLAMA ERROR] Exception during Ollama request: {e}")
         return ""
@@ -61,14 +68,12 @@ class MyClient(discord.Client):
             print(f"[DISCORD] Trigger word '{trigger_word}' detected in message.")
             await message.channel.typing()
             ollama_response = await asyncio.to_thread(ollama_generate_request, message.content)
-            if contains_filtered_word(ollama_response):
-                print("[DISCORD] Response contained filtered word. Sending fallback message.")
-                ollama_response = "meow"
-            elif not ollama_response:
+            if not ollama_response:
                 print("[DISCORD] Empty response from Ollama. No reply will be sent.")
                 return
-            print(f"[DISCORD] Replying with: {ollama_response!r}")
-            await message.reply(ollama_response)
+            redacted_response = redact_filtered_words(ollama_response)
+            print(f"[DISCORD] Replying with: {redacted_response!r}")
+            await message.reply(redacted_response)
         elif message.reference is not None:
             try:
                 replied_message = await message.channel.fetch_message(message.reference.message_id)
@@ -76,14 +81,12 @@ class MyClient(discord.Client):
                     print("[DISCORD] Replying to a previous bot message.")
                     await message.channel.typing()
                     ollama_response = await asyncio.to_thread(ollama_generate_request, message.content)
-                    if contains_filtered_word(ollama_response):
-                        print("[DISCORD] Response contained filtered word. Sending fallback message.")
-                        ollama_response = "meow"
-                    elif not ollama_response:
+                    if not ollama_response:
                         print("[DISCORD] Empty response from Ollama. No reply will be sent.")
                         return
-                    print(f"[DISCORD] Replying with: {ollama_response!r}")
-                    await message.reply(ollama_response)
+                    redacted_response = redact_filtered_words(ollama_response)
+                    print(f"[DISCORD] Replying with: {redacted_response!r}")
+                    await message.reply(redacted_response)
             except Exception as e:
                 print(f"[DISCORD] Exception while processing reply-to: {e}")
 
