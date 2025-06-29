@@ -5,6 +5,7 @@ import asyncio
 import os
 import re
 from dotenv import load_dotenv
+
 load_dotenv()
 token = os.getenv("DISCORD_TOKEN")
 ollama_model = os.getenv("OLLAMA_MODEL")
@@ -16,7 +17,8 @@ FILTERED_WORDS_RAW = os.getenv("FILTERED_WORDS", "stupid, idiot, dumb poop fart"
 FILTERED_WORDS = set(w.lower() for w in re.split(r"[,\s]+", FILTERED_WORDS_RAW.strip()) if w)
 
 DINGUS_CONVO = [
-    {"role": "system", "content": "you are a chubby cat named dingus. you always type in lowercase, never use apostrophes or other punctuation, and you sometimes misspell words. you use slang like bro, dude, yo, and so on. you keep sentences EXTREMELY IKE EXTREMELY short. you type like you almost dont know english at all, barely constructing sentences. you use emojis. you always crave food and are mostly lazy, but sometimes want to play with your toys or go outside. never use asterisks or describe actions, just talk."},
+    {"role": "system",
+     "content": "you are a chubby cat named dingus. you always type in lowercase, never use apostrophes or other punctuation, and you sometimes misspell words. you use slang like bro, dude, yo, and so on. you keep sentences EXTREMELY IKE EXTREMELY short. you type like you almost dont know english at all, barely constructing sentences. you use emojis. you always crave food and are mostly lazy, but sometimes want to play with your toys or go outside. never use asterisks or describe actions, just talk."},
     {"role": "user", "content": "yo dingus"},
     {"role": "assistant", "content": "whats good bru"},
     {"role": "user", "content": "dingus why are you so fat"},
@@ -98,9 +100,18 @@ DINGUS_CONVO = [
     {"role": "assistant", "content": "maybe"}
 ]
 
-def contains_filtered_word(text):
-    words = re.findall(r"\w+", text.lower())
-    return any(word in FILTERED_WORDS for word in words)
+
+def redact_filtered_words(text):
+    def replacer(match):
+        word = match.group(0)
+        if word.lower() in FILTERED_WORDS:
+            return "[[REDACTED]]"
+        else:
+            return word
+
+    pattern = r'\b(' + '|'.join(re.escape(word) for word in FILTERED_WORDS) + r')\b'
+    return re.sub(pattern, replacer, text, flags=re.IGNORECASE)
+
 
 class RollingMemory:
     def __init__(self, maxlen=10):
@@ -115,6 +126,7 @@ class RollingMemory:
     def get(self):
         return self.messages
 
+
 def ollama_chat_request(history, model=ollama_model):
     url = "http://localhost:11434/api/chat"
     payload = {
@@ -125,6 +137,7 @@ def ollama_chat_request(history, model=ollama_model):
     response = requests.post(url, json=payload, timeout=180)
     data = response.json()
     return data["message"]["content"].strip()
+
 
 class MyClient(discord.Client):
     def __init__(self, *, intents):
@@ -145,10 +158,9 @@ class MyClient(discord.Client):
             await message.channel.typing()
             history = self.memory.get()
             ollama_response = await asyncio.to_thread(ollama_chat_request, history)
-            if contains_filtered_word(ollama_response):
-                ollama_response = "meow"
-            self.memory.add("assistant", "dingus", ollama_response)
-            await message.reply(ollama_response)
+            redacted_response = redact_filtered_words(ollama_response)
+            self.memory.add("assistant", "dingus", redacted_response)
+            await message.reply(redacted_response)
         elif message.reference is not None:
             try:
                 replied_message = await message.channel.fetch_message(message.reference.message_id)
@@ -157,16 +169,16 @@ class MyClient(discord.Client):
                     await message.channel.typing()
                     history = self.memory.get()
                     ollama_response = await asyncio.to_thread(ollama_chat_request, history)
-                    if contains_filtered_word(ollama_response):
-                        ollama_response = "meow"
-                    self.memory.add("assistant", "dingus", ollama_response)
-                    await message.reply(ollama_response)
+                    redacted_response = redact_filtered_words(ollama_response)
+                    self.memory.add("assistant", "dingus", redacted_response)
+                    await message.reply(redacted_response)
             except:
                 pass
 
     async def process_queue(self):
         while True:
             await asyncio.sleep(0.1)
+
 
 client = MyClient(intents=intents)
 client.run(token)
